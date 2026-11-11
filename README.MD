@@ -2,8 +2,10 @@
 
 A resource pack that adds custom dynamic lights with soft ray-traced shadows to vanilla Minecraft.
 
+> **Minecraft 1.21.4 only** (pack format 46), **Fabulous! graphics required**. Experimental port, untested in-game.
+> For older versions use the upstream repository.
+
 [Click here to view the branch with experimental features.](https://github.com/JNNGL/VanillaDI/tree/experiments) <br>
-[Click here to view the README with the commands updated to 1.20.5+](https://github.com/JNNGL/VanillaDI/blob/main/README_1_20_5.MD)
 
 ![image4.png](images/image4.png)
 ![image7.png](images/image7.png)
@@ -15,13 +17,12 @@ https://github.com/JNNGL/VanillaDI/assets/45935949/a8be5e26-b4af-4c8a-9906-d673b
 First, you need to spawn a `leather_horse_armor` item display with CustomModelData 1 and color set to
 the number of lights (in the range 0-255). There's currently no spatiotemporal resampling, so keep it as low as possible for the best results.
 
-**Example:** `/summon item_display ~ ~ ~ {Tags:["marker"],item:{id:leather_horse_armor,Count:1,tag:{CustomModelData:1,display:{color:1}}}}` <-- 1 light will be rendered.
+**Example:** `/summon item_display ~ ~ ~ {Tags:["marker"],item:{id:leather_horse_armor,count:1,components:{custom_model_data:{floats:[1]},dyed_color:1}}}` <-- 1 light will be rendered.
 
 You need to update the color of this display every time a light source is created/removed.
 
-**Example:** `/data merge entity @e[tag=marker,limit=1] {item:{tag:{display:{color:2}}}}` <-- Changes the number of rendered lights to 2.
+**Example:** `/data merge entity @e[tag=marker,limit=1] {item:{components:{"minecraft:dyed_color":2}}}` <-- Changes the number of rendered lights to 2.
 
-**Note:** teleporting or transforming this display may cause artifacts as its position is used to calculate offset for temporal reprojection.
 
 ----
 
@@ -43,9 +44,9 @@ Ideally, the id for each newly created light source should be one greater than t
 To temporarily disable a light source, you can set its intensity to 0.
 
 **Examples**:
-<br> `/summon item_display ~ ~ ~ {Tags:["light0"],item:{id:leather_horse_armor,Count:1,tag:{CustomModelData:2,display:{color:3932160}}}}` <-- Built-in rectangular area light; with intensity 60, color index 0 (hardcoded, white), light index 0; (`60 * 256 * 256 + 0 * 256 + 0 = 3932160`)
-<br> `/summon item_display ~ ~ ~ {Tags:["light1"],item:{id:leather_horse_armor,Count:1,tag:{CustomModelData:3,display:{color:3932673}}}}` <-- Built-in spherical light; with intensity 60, color index 2 (color from palette, pixel at [2,0], `(0 * 16) + 2`), light index 1; (`60 * 256 * 256 + 2 * 256 + 1 = 3932673`)
-<br> `/data merge entity @e[tag=light0,limit=1] {item:{tag:{display:{color:3932416}}}}` <-- Update the light source data to intensity 60, color index 1, light index 0.
+<br> `/summon item_display ~ ~ ~ {Tags:["light0"],item:{id:leather_horse_armor,count:1,components:{custom_model_data:{floats:[2]},dyed_color:3932160}}}` <-- Built-in rectangular area light; with intensity 60, color index 0 (hardcoded, white), light index 0; (`60 * 256 * 256 + 0 * 256 + 0 = 3932160`)
+<br> `/summon item_display ~ ~ ~ {Tags:["light1"],item:{id:leather_horse_armor,count:1,components:{custom_model_data:{floats:[3]},dyed_color:3932673}}}` <-- Built-in spherical light; with intensity 60, color index 2 (color from palette, pixel at [2,0], `(0 * 16) + 2`), light index 1; (`60 * 256 * 256 + 2 * 256 + 1 = 3932673`)
+<br> `/data merge entity @e[tag=light0,limit=1] {item:{components:{"minecraft:dyed_color":3932416}}}` <-- Update the light source data to intensity 60, color index 1, light index 0.
 
 ### Creating custom lights
 
@@ -53,7 +54,7 @@ To temporarily disable a light source, you can set its intensity to 0.
 
 The texture should be 16x16.<br>
 The pixel at coords [0,0] should have R 195, G 75, and A 255. The shader checks these values to distinguish light source textures from other textures.
-The value of the blue channel of this pixel is passed to post and specifies the shape of the light source. Check out the function `samplePointOnLight` in `program/shade.fsh`.
+The value of the blue channel of this pixel is passed to post and specifies the shape of the light source. Check out the function `samplePointOnLight` in `shaders/post/shade.fsh`.
 
 Built-in light source types:
 
@@ -79,60 +80,28 @@ Pretty straightforward.
 }
 ```
 
-3. **Add an override to any item that has tint overlay.**
+3. **Add an entry to `assets/minecraft/items/leather_horse_armor.json`.**
 
-e.g. leather horse armor.
+Add a new entry to the `range_dispatch` on `custom_model_data`:
 
 ```json
 {
-  <...>
-  "overrides": [
-    <...>
-    {"predicate": {"custom_model_data": 10}, "model": "custom/my_light"}
-  ]
+    "threshold": 10,
+    "model": { "type": "minecraft:model", "model": "minecraft:custom/my_light", "tints": [ { "type": "minecraft:dye", "default": -1 } ] }
 }
 ```
 
-## Pixelization
+## Limitations (1.21.4)
 
-There's an optional pixelization pass that makes the lighting aligned to the block pixels:
+Post-processing targets are transient in 1.21.4: they are cleared every frame and cannot be kept between frames. As a result:
 
-![image13.png](images/image13.png)
+ - there is **no temporal accumulation**, shadows are noisier and only spatially denoised;
+ - there is **no voxel cache**: the voxel grid is rebuilt every frame from what is visible on screen, so off-screen/hidden geometry casts no shadows, and voxelization is more expensive;
+ - the optional pixelization pass was removed;
+ - the noise is seeded with the game time passed through the data pixels instead of the `Time` uniform.
 
-![image14.png](images/image14.png)
-
-### Enabling pixelization
-
-First, ensure that your `leather_horse_armor` item display with CMD 1 is on *integer* coordinates, e.g: 4.0 -60.0 -9.0. <br>
-Then add the following lines to `shaders/post/transparency.json` before the `blend` pass:
-
-```json
-{
-    "name": "pixelate",
-    "intarget": "minecraft:main",
-    "outtarget": "swap",
-    "auxtargets": [
-        {
-            "name": "RadianceSampler",
-            "id": "spatial2"
-        },
-        {
-            "name": "DiffuseDepthSampler",
-            "id": "minecraft:main:depth"
-        },
-        {
-            "name": "NormalSampler",
-            "id": "normals"
-        }
-    ]
-},
-```
-
-and change the `LightSampler` target to `swap` in the `blend` pass.
-
-![image15.png](images/image15.png)
-
-**Warning**: this feature may be a little buggy.
+Item displays render into the `item_entity` target in Fabulous mode, so the post shaders read the light/marker data from there,
+and the pack ships its own `vdi_transparency` program that ignores the first pixel row of that target.
 
 ## Mod compatibility
 

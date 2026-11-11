@@ -1,0 +1,303 @@
+{
+    "targets": {
+        "normals": {},
+        "swap": {},
+        "voxels": {
+            "width": 2048,
+            "height": 2048
+        },
+        "voxelLod": {
+            "width": 128,
+            "height": 2048
+        },
+        "spatial": {},
+        "spatial2": {},
+        "final": {},
+        "composite": {}
+    },
+    "passes": [
+        {
+            "program": "minecraft:post/normals",
+            "inputs": [
+                {
+                    "sampler_name": "Data",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "DiffuseDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                }
+            ],
+            "output": "minecraft:normals"
+        },
+        {
+            "program": "minecraft:post/voxelize",
+            "inputs": [
+                {
+                    "sampler_name": "Data",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "DiffuseDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Normal",
+                    "target": "minecraft:normals"
+                }
+            ],
+            "output": "minecraft:voxels"
+        },
+        {
+            "program": "minecraft:post/build_lod",
+            "inputs": [
+                {
+                    "sampler_name": "Diffuse",
+                    "target": "minecraft:voxels"
+                }
+            ],
+            "output": "minecraft:voxelLod"
+        },
+        {
+            "program": "minecraft:post/shade",
+            "inputs": [
+                {
+                    "sampler_name": "Data",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "Diffuse",
+                    "target": "minecraft:main"
+                },
+                {
+                    "sampler_name": "DiffuseDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Normal",
+                    "target": "minecraft:normals"
+                },
+                {
+                    "sampler_name": "Voxel",
+                    "target": "minecraft:voxels"
+                },
+                {
+                    "sampler_name": "VoxelLod",
+                    "target": "minecraft:voxelLod"
+                }
+            ],
+            "output": "minecraft:swap"
+        },
+        {
+            "program": "minecraft:post/spatial",
+            "inputs": [
+                {
+                    "sampler_name": "Data",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "DiffuseDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Radiance",
+                    "target": "minecraft:swap"
+                },
+                {
+                    "sampler_name": "Normal",
+                    "target": "minecraft:normals"
+                }
+            ],
+            "output": "minecraft:spatial",
+            "uniforms": [
+                {
+                    "name": "Step",
+                    "values": [
+                        1.0
+                    ]
+                }
+            ]
+        },
+        {
+            "program": "minecraft:post/spatial",
+            "inputs": [
+                {
+                    "sampler_name": "Data",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "DiffuseDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Radiance",
+                    "target": "minecraft:spatial"
+                },
+                {
+                    "sampler_name": "Normal",
+                    "target": "minecraft:normals"
+                }
+            ],
+            "output": "minecraft:spatial2",
+            "uniforms": [
+                {
+                    "name": "Step",
+                    "values": [
+                        2.0
+                    ]
+                }
+            ]
+        },
+        {
+            "program": "minecraft:post/spatial",
+            "inputs": [
+                {
+                    "sampler_name": "Data",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "DiffuseDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Radiance",
+                    "target": "minecraft:spatial2"
+                },
+                {
+                    "sampler_name": "Normal",
+                    "target": "minecraft:normals"
+                }
+            ],
+            "output": "minecraft:spatial",
+            "uniforms": [
+                {
+                    "name": "Step",
+                    "values": [
+                        4.0
+                    ]
+                }
+            ]
+        },
+        {
+            "program": "minecraft:post/spatial",
+            "inputs": [
+                {
+                    "sampler_name": "Data",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "DiffuseDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Radiance",
+                    "target": "minecraft:spatial"
+                },
+                {
+                    "sampler_name": "Normal",
+                    "target": "minecraft:normals"
+                }
+            ],
+            "output": "minecraft:spatial2",
+            "uniforms": [
+                {
+                    "name": "Step",
+                    "values": [
+                        8.0
+                    ]
+                }
+            ]
+        },
+        {
+            "program": "minecraft:post/blend",
+            "inputs": [
+                {
+                    "sampler_name": "Diffuse",
+                    "target": "minecraft:main"
+                },
+                {
+                    "sampler_name": "Light",
+                    "target": "minecraft:spatial2"
+                }
+            ],
+            "output": "minecraft:final"
+        },
+        {
+            "program": "minecraft:post/vdi_transparency",
+            "inputs": [
+                {
+                    "sampler_name": "Main",
+                    "target": "minecraft:final"
+                },
+                {
+                    "sampler_name": "MainDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Translucent",
+                    "target": "minecraft:translucent"
+                },
+                {
+                    "sampler_name": "TranslucentDepth",
+                    "target": "minecraft:translucent",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "ItemEntity",
+                    "target": "minecraft:item_entity"
+                },
+                {
+                    "sampler_name": "ItemEntityDepth",
+                    "target": "minecraft:item_entity",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Particles",
+                    "target": "minecraft:particles"
+                },
+                {
+                    "sampler_name": "ParticlesDepth",
+                    "target": "minecraft:particles",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Clouds",
+                    "target": "minecraft:clouds"
+                },
+                {
+                    "sampler_name": "CloudsDepth",
+                    "target": "minecraft:clouds",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Weather",
+                    "target": "minecraft:weather"
+                },
+                {
+                    "sampler_name": "WeatherDepth",
+                    "target": "minecraft:weather",
+                    "use_depth_buffer": true
+                }
+            ],
+            "output": "minecraft:composite"
+        },
+        {
+            "program": "minecraft:post/blit",
+            "inputs": [
+                {
+                    "sampler_name": "In",
+                    "target": "minecraft:composite"
+                }
+            ],
+            "output": "minecraft:main"
+        }
+    ]
+}
